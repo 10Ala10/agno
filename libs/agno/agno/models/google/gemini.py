@@ -35,6 +35,8 @@ try:
         Tool,
         UrlContext,
         VertexAISearch,
+        VertexRagStore,
+        VertexRagStoreRagResource,
     )
     from google.genai.types import (
         File as GeminiFile,
@@ -53,6 +55,10 @@ class Gemini(Model):
     - Set `vertexai` to `True` to use the Vertex AI API.
     - Set your `project_id` (or set `GOOGLE_CLOUD_PROJECT` environment variable) and `location` (optional).
     - Set `http_options` (optional) to configure the HTTP options.
+
+    Vertex AI Search and RAG Store:
+    - Set `vertexai_search` to `True` and provide `vertexai_search_datastore` to enable Vertex AI Search.
+    - Set `vertexai_rag_store` to `True` and provide `vertexai_rag_store_corpus` to enable Vertex AI RAG Store.
 
     Based on https://googleapis.github.io/python-genai/
     """
@@ -74,6 +80,8 @@ class Gemini(Model):
     url_context: bool = False
     vertexai_search: bool = False
     vertexai_search_datastore: Optional[str] = None
+    vertexai_rag_store: bool = False
+    vertexai_rag_store_corpus: Optional[str] = None
 
     temperature: Optional[float] = None
     top_p: Optional[float] = None
@@ -236,6 +244,17 @@ class Gemini(Model):
                 raise ValueError("vertexai_search_datastore must be provided when vertexai_search is enabled.")
             builtin_tools.append(
                 Tool(retrieval=Retrieval(vertex_ai_search=VertexAISearch(datastore=self.vertexai_search_datastore)))
+            )
+
+        if self.vertexai_rag_store:
+            log_info("Vertex AI RAG Store enabled.")
+            if not self.vertexai_rag_store_corpus:
+                log_error("vertexai_rag_store_corpus must be provided when vertexai_rag_store is enabled.")
+                raise ValueError("vertexai_rag_store_corpus must be provided when vertexai_rag_store is enabled.")
+            builtin_tools.append(
+                Tool(retrieval=Retrieval(vertex_rag_store=VertexRagStore(
+                    rag_resources=[VertexRagStoreRagResource(rag_corpus=self.vertexai_rag_store_corpus)]
+                )))
             )
 
         # Set tools in config
