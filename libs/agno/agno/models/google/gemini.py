@@ -22,20 +22,22 @@ try:
     from google.genai import Client as GeminiClient
     from google.genai.errors import ClientError, ServerError
     from google.genai.types import (
-        Content,
-        DynamicRetrievalConfig,
-        GenerateContentConfig,
-        GenerateContentResponse,
-        GenerateContentResponseUsageMetadata,
-        GoogleSearch,
-        GoogleSearchRetrieval,
-        Part,
-        Retrieval,
-        ThinkingConfig,
-        Tool,
-        UrlContext,
-        VertexAISearch,
-    )
+    Content,
+    DynamicRetrievalConfig,
+    GenerateContentConfig,
+    GenerateContentResponse,
+    GenerateContentResponseUsageMetadata,
+    GoogleSearch,
+    GoogleSearchRetrieval,
+    Part,
+    Retrieval,
+    ThinkingConfig,
+    Tool,
+    UrlContext,
+    VertexAISearch,
+    VertexRagStore,
+    VertexRagStoreRagResource,
+)
     from google.genai.types import (
         File as GeminiFile,
     )
@@ -57,6 +59,11 @@ class Gemini(Model):
         * Single datastore: `vertexai_search_datastore="projects/{project_id}/locations/{location}/collections/{collection_id}/dataStores/{datastore_id}"`
         * Multiple datastores: `vertexai_search_datastore=["datastore1", "datastore2", "datastore3"]`
         * Each datastore will be added as a separate tool, allowing the model to search across multiple knowledge bases.
+    - Set `vertexai_rag_store` to `True` to enable Vertex AI RAG Store.
+    - Set `vertexai_rag_store_id` to one or more RAG store IDs:
+        * Single RAG store: `vertexai_rag_store_id="projects/{project_id}/locations/{location}/ragCorpora/{rag_corpus_id}"`
+        * Multiple RAG stores: `vertexai_rag_store_id=["ragstore1", "ragstore2", "ragstore3"]`
+        * All RAG stores will be combined into a single tool, allowing the model to retrieve from multiple RAG knowledge bases.
     Based on https://googleapis.github.io/python-genai/
     """
 
@@ -77,6 +84,8 @@ class Gemini(Model):
     url_context: bool = False
     vertexai_search: bool = False
     vertexai_search_datastore: Optional[Union[str, List[str]]] = None
+    vertexai_rag_store: bool = False
+    vertexai_rag_store_id: Optional[Union[str, List[str]]] = None
 
     temperature: Optional[float] = None
     top_p: Optional[float] = None
@@ -254,6 +263,33 @@ class Gemini(Model):
                 datastore_id = datastore_id.strip()
                 log_info(f"Adding Vertex AI Search tool for datastore: {datastore_id}")
                 builtin_tools.append(Tool(retrieval=Retrieval(vertex_ai_search=VertexAISearch(datastore=datastore_id))))
+
+        if self.vertexai_rag_store:
+            log_info("Vertex AI RAG Store enabled.")
+            if not self.vertexai_rag_store_id:
+                log_error("vertexai_rag_store_id must be provided when vertexai_rag_store is enabled.")
+                raise ValueError("vertexai_rag_store_id must be provided when vertexai_rag_store is enabled.")
+
+            # Convert single string to list for consistent processing
+            rag_store_list = (
+                [self.vertexai_rag_store_id]
+                if isinstance(self.vertexai_rag_store_id, str)
+                else self.vertexai_rag_store_id
+            )
+
+            # Validate RAG store IDs and create resources list
+            rag_resources = []
+            for i, rag_store_id in enumerate(rag_store_list):
+                if not isinstance(rag_store_id, str) or not rag_store_id.strip():
+                    log_error(f"Invalid RAG store at index {i}: must be a non-empty string")
+                    raise ValueError(f"vertexai_rag_store_id[{i}] must be a non-empty string")
+
+                rag_store_id = rag_store_id.strip()
+                log_info(f"Adding RAG resource for: {rag_store_id}")
+                rag_resources.append(VertexRagStoreRagResource(rag_corpus=rag_store_id))
+
+            # Create single tool with all RAG resources
+            builtin_tools.append(Tool(retrieval=Retrieval(vertex_rag_store=VertexRagStore(rag_resources=rag_resources))))
 
         # Set tools in config
         if builtin_tools:
