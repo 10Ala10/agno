@@ -58,7 +58,7 @@ class Gemini(Model):
 
     Vertex AI Search and RAG Store:
     - Set `vertexai_search` to `True` and provide `vertexai_search_datastore` to enable Vertex AI Search.
-    - Set `vertexai_rag_store` to `True` and provide `vertexai_rag_store_corpus` to enable Vertex AI RAG Store.
+    - Set `vertexai_rag_store` to `True` and provide `vertexai_rag_store_corpus` (for entire corpus) or `vertexai_rag_store_file_ids` (for specific files from the same corpus) to enable Vertex AI RAG Store.
 
     Based on https://googleapis.github.io/python-genai/
     """
@@ -82,6 +82,7 @@ class Gemini(Model):
     vertexai_search_datastore: Optional[str] = None
     vertexai_rag_store: bool = False
     vertexai_rag_store_corpus: Optional[str] = None
+    vertexai_rag_store_file_ids: Optional[List[str]] = None
 
     temperature: Optional[float] = None
     top_p: Optional[float] = None
@@ -248,12 +249,20 @@ class Gemini(Model):
 
         if self.vertexai_rag_store:
             log_info("Vertex AI RAG Store enabled.")
-            if not self.vertexai_rag_store_corpus:
-                log_error("vertexai_rag_store_corpus must be provided when vertexai_rag_store is enabled.")
-                raise ValueError("vertexai_rag_store_corpus must be provided when vertexai_rag_store is enabled.")
+            if not self.vertexai_rag_store_corpus and not self.vertexai_rag_store_file_ids:
+                log_error("Either vertexai_rag_store_corpus or vertexai_rag_store_file_ids must be provided when vertexai_rag_store is enabled.")
+                raise ValueError("Either vertexai_rag_store_corpus or vertexai_rag_store_file_ids must be provided when vertexai_rag_store is enabled.")
+
+            # Create rag resource configuration
+            rag_resource_config = {}
+            if self.vertexai_rag_store_corpus:
+                rag_resource_config["rag_corpus"] = self.vertexai_rag_store_corpus
+            if self.vertexai_rag_store_file_ids:
+                rag_resource_config["rag_file_ids"] = self.vertexai_rag_store_file_ids
+
             builtin_tools.append(
                 Tool(retrieval=Retrieval(vertex_rag_store=VertexRagStore(
-                    rag_resources=[VertexRagStoreRagResource(rag_corpus=self.vertexai_rag_store_corpus)]
+                    rag_resources=[VertexRagStoreRagResource(**rag_resource_config)]
                 )))
             )
 
