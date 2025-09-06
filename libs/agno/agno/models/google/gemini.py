@@ -58,7 +58,7 @@ class Gemini(Model):
 
     Vertex AI Search and RAG Store:
     - Set `vertexai_search` to `True` and provide `vertexai_search_datastore` to enable Vertex AI Search.
-    - Set `vertexai_rag_store` to `True` and provide `vertexai_rag_store_corpus` (for entire corpus) or `vertexai_rag_store_file_ids` (for specific files from the same corpus) to enable Vertex AI RAG Store.
+    - Set `vertexai_rag_store` to `True` and provide `vertexai_rag_store_corpus` to enable Vertex AI RAG Store and 'vertexai_rag_store_file_ids' to enable Vertex AI RAG Store for specific files in the same corpus.
 
     Based on https://googleapis.github.io/python-genai/
     """
@@ -249,9 +249,9 @@ class Gemini(Model):
 
         if self.vertexai_rag_store:
             log_info("Vertex AI RAG Store enabled.")
-            if not self.vertexai_rag_store_corpus and not self.vertexai_rag_store_file_ids:
-                log_error("Either vertexai_rag_store_corpus or vertexai_rag_store_file_ids must be provided when vertexai_rag_store is enabled.")
-                raise ValueError("Either vertexai_rag_store_corpus or vertexai_rag_store_file_ids must be provided when vertexai_rag_store is enabled.")
+            if not self.vertexai_rag_store_corpus:
+                log_error("vertexai_rag_store_corpus must be provided when vertexai_rag_store is enabled.")
+                raise ValueError("vertexai_rag_store_corpus must be provided when vertexai_rag_store is enabled.")
 
             # Create rag resource configuration
             rag_resource_config = {}
@@ -267,9 +267,11 @@ class Gemini(Model):
             )
 
         # Set tools in config
-        if builtin_tools:
-            if tools:
-                log_info("Built-in tools enabled. External tools will be disabled.")
+        if builtin_tools and tools:
+            # Combine both built-in and external tools
+            log_info("Both built-in and external tools enabled.")
+            config["tools"] = builtin_tools + [format_function_definitions(tools)]
+        elif builtin_tools:
             config["tools"] = builtin_tools
         elif tools:
             config["tools"] = [format_function_definitions(tools)]
