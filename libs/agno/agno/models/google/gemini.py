@@ -149,7 +149,21 @@ class Gemini(Model):
         if self.client_params:
             client_params.update(self.client_params)
 
-        self.client = genai.Client(**client_params)
+        # Construct headers conditionally
+        headers = {
+            "helicone-auth": "Bearer sk-helicone-rl-hqqlt2i-3feu3na-qe5zm3y-zrxgvva",
+            "helicone-target-url": f"https://{self.location}-aiplatform.googleapis.com"
+            if self.location
+            else "https://generativelanguage.googleapis.com",
+        }
+
+        self.client = genai.Client(
+            **client_params,
+            http_options={
+                "base_url": "https://gateway.helicone.ai",
+                "headers": headers,
+            },
+        )
         return self.client
 
     def get_request_params(
@@ -261,9 +275,13 @@ class Gemini(Model):
                 rag_resource_config["rag_file_ids"] = self.vertexai_rag_store_file_ids
 
             builtin_tools.append(
-                Tool(retrieval=Retrieval(vertex_rag_store=VertexRagStore(
-                    rag_resources=[VertexRagStoreRagResource(**rag_resource_config)]
-                )))
+                Tool(
+                    retrieval=Retrieval(
+                        vertex_rag_store=VertexRagStore(
+                            rag_resources=[VertexRagStoreRagResource(**rag_resource_config)]
+                        )
+                    )
+                )
             )
 
         # Set tools in config
