@@ -168,6 +168,7 @@ class Gemini(Model):
 
     def get_request_params(
         self,
+        messages: List[Message],
         system_message: Optional[str] = None,
         response_format: Optional[Union[Dict, Type[BaseModel]]] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
@@ -284,11 +285,25 @@ class Gemini(Model):
                 )
             )
 
+        # Workaround for combining retrieval tools with function calling.
+        # If the last message is a tool response, we should not include retrieval tools
+        # in the request to avoid a `400 INVALID_ARGUMENT` error from the API.
+        # See: https://github.com/googleapis/python-genai/issues/1274
+        is_tool_response_turn = False
+        if messages and messages[-1].role == "tool":
+            is_tool_response_turn = True
+
         # Set tools in config
         if builtin_tools and tools:
             # Combine both built-in and external tools
             log_info("Both built-in and external tools enabled.")
-            config["tools"] = builtin_tools + [format_function_definitions(tools)]
+            if is_tool_response_turn:
+                log_info(
+                    "This is a tool response turn. Temporarily disabling built-in tools (e.g., RAG) to avoid an API error."
+                )
+                config["tools"] = [format_function_definitions(tools)]
+            else:
+                config["tools"] = builtin_tools + [format_function_definitions(tools)]
         elif builtin_tools:
             config["tools"] = builtin_tools
         elif tools:
@@ -318,7 +333,7 @@ class Gemini(Model):
         Invokes the model with a list of messages and returns the response.
         """
         formatted_messages, system_message = self._format_messages(messages)
-        request_kwargs = self.get_request_params(system_message, response_format=response_format, tools=tools)
+        request_kwargs = self.get_request_params(messages, system_message, response_format=response_format, tools=tools)
         try:
             return self.get_client().models.generate_content(
                 model=self.id,
@@ -350,7 +365,7 @@ class Gemini(Model):
         """
         formatted_messages, system_message = self._format_messages(messages)
 
-        request_kwargs = self.get_request_params(system_message, response_format=response_format, tools=tools)
+        request_kwargs = self.get_request_params(messages, system_message, response_format=response_format, tools=tools)
         try:
             yield from self.get_client().models.generate_content_stream(
                 model=self.id,
@@ -381,7 +396,7 @@ class Gemini(Model):
         """
         formatted_messages, system_message = self._format_messages(messages)
 
-        request_kwargs = self.get_request_params(system_message, response_format=response_format, tools=tools)
+        request_kwargs = self.get_request_params(messages, system_message, response_format=response_format, tools=tools)
 
         try:
             return await self.get_client().aio.models.generate_content(
@@ -413,7 +428,7 @@ class Gemini(Model):
         """
         formatted_messages, system_message = self._format_messages(messages)
 
-        request_kwargs = self.get_request_params(system_message, response_format=response_format, tools=tools)
+        request_kwargs = self.get_request_params(messages, system_message, response_format=response_format, tools=tools)
 
         try:
             async_stream = await self.get_client().aio.models.generate_content_stream(
