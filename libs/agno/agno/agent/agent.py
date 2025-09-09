@@ -8052,9 +8052,17 @@ class Agent:
 
     def _add_reasoning_step_to_extra_data(self, reasoning_step: ReasoningStep) -> None:
         if hasattr(self, "run_response") and self.run_response is not None:
-            if self.run_response.extra_data is None:
-                from agno.run.response import RunResponseExtraData
+            from agno.run.response import RunResponseExtraData
 
+            # If extra_data is None, create a new RunResponseExtraData instance
+            if self.run_response.extra_data is None:
+                self.run_response.extra_data = RunResponseExtraData()
+            # If extra_data is a dict (from deserialization), convert it to RunResponseExtraData
+            elif isinstance(self.run_response.extra_data, dict):
+                self.run_response.extra_data = RunResponseExtraData.from_dict(self.run_response.extra_data)
+            # If extra_data exists and is not a dict, ensure it's the right type
+            elif not isinstance(self.run_response.extra_data, RunResponseExtraData):
+                # Fallback: create new instance if type is unexpected
                 self.run_response.extra_data = RunResponseExtraData()
 
             if self.run_response.extra_data.reasoning_steps is None:
@@ -8065,9 +8073,17 @@ class Agent:
     def _add_reasoning_metrics_to_extra_data(self, reasoning_time_taken: float) -> None:
         try:
             if hasattr(self, "run_response") and self.run_response is not None:
-                if self.run_response.extra_data is None:
-                    from agno.run.response import RunResponseExtraData
+                from agno.run.response import RunResponseExtraData
 
+                # If extra_data is None, create a new RunResponseExtraData instance
+                if self.run_response.extra_data is None:
+                    self.run_response.extra_data = RunResponseExtraData()
+                # If extra_data is a dict (from deserialization), convert it to RunResponseExtraData
+                elif isinstance(self.run_response.extra_data, dict):
+                    self.run_response.extra_data = RunResponseExtraData.from_dict(self.run_response.extra_data)
+                # If extra_data exists and is not a dict, ensure it's the right type
+                elif not isinstance(self.run_response.extra_data, RunResponseExtraData):
+                    # Fallback: create new instance if type is unexpected
                     self.run_response.extra_data = RunResponseExtraData()
 
                 # Initialize reasoning_messages if it doesn't exist
