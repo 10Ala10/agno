@@ -2167,24 +2167,24 @@ class Agent:
             knowledge_filters=effective_filters,
         )
 
-        # Extract original user message from messages and remove from messages
-        user_message = None
-        for m in messages:
-            if m.role == self.user_message_role:
-                user_message = m
-                messages.remove(m)
-                break
+        # # Extract original user message from messages and remove from messages
+        # user_message = None
+        # for m in messages:
+        #     if m.role == self.user_message_role:
+        #         user_message = m
+        #         messages.remove(m)
+        #         break
 
-        # Set run_input
-        if user_message is not None:
-            if isinstance(user_message, str):
-                self.run_input = user_message
-            elif isinstance(user_message, Message):
-                self.run_input = user_message.to_dict()
-            else:
-                self.run_input = user_message
-        elif messages is not None:
-            self.run_input = [m.to_dict() if isinstance(m, Message) else m for m in messages]
+        # # Set run_input
+        # if user_message is not None:
+        #     if isinstance(user_message, str):
+        #         self.run_input = user_message
+        #     elif isinstance(user_message, Message):
+        #         self.run_input = user_message.to_dict()
+        #     else:
+        #         self.run_input = user_message
+        # elif messages is not None:
+        #     self.run_input = [m.to_dict() if isinstance(m, Message) else m for m in messages]
 
         last_exception = None
         num_attempts = retries + 1
