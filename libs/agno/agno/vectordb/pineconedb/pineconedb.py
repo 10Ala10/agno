@@ -687,7 +687,7 @@ class PineconeDb(VectorDb):
                 filter={"content_id": {"$eq": content_id}},
                 top_k=10000,  # Get all matching vectors
                 include_metadata=True,
-                include_values=False,
+                include_values=True,  # Need vector values for upsert
                 namespace=self.namespace,
             )
 
@@ -695,8 +695,8 @@ class PineconeDb(VectorDb):
                 logger.debug(f"No documents found with content_id: {content_id}")
                 return
 
-            # Prepare updates for each matching vector
-            update_data = []
+            # Prepare vectors for batch upsert (more efficient than individual updates)
+            upsert_vectors = []
             for match in query_response.matches:
                 vector_id = match.id
                 current_metadata = match.metadata or {}
@@ -705,13 +705,14 @@ class PineconeDb(VectorDb):
                 updated_metadata = current_metadata.copy()
                 updated_metadata.update(metadata)
 
-                update_data.append({"id": vector_id, "metadata": updated_metadata})
+                # Use existing vector values with updated metadata
+                upsert_vectors.append({"id": vector_id, "values": match.values, "metadata": updated_metadata})
 
-            # Update vectors individually (Pinecone update API doesn't support batch updates)
-            for update_item in update_data:
-                self.index.update(id=update_item["id"], set_metadata=update_item["metadata"], namespace=self.namespace)
+            # Upsert all vectors at once
+            if upsert_vectors:
+                self.index.upsert(vectors=upsert_vectors, namespace=self.namespace)
 
-            logger.debug(f"Updated metadata for {len(update_data)} documents with content_id: {content_id}")
+            logger.debug(f"Updated metadata for {len(upsert_vectors)} documents with content_id: {content_id}")
 
         except Exception as e:
             logger.error(f"Error updating metadata for content_id '{content_id}': {e}")
@@ -768,7 +769,7 @@ class PineconeDb(VectorDb):
                 filter=query_filters,
                 top_k=10000,  # Get all matching vectors
                 include_metadata=True,
-                include_values=False,
+                include_values=True,  # Need vector values for upsert
                 namespace=namespace or self.namespace,
             )
 
@@ -776,8 +777,8 @@ class PineconeDb(VectorDb):
                 logger.debug(f"No documents found with filters: {filters}")
                 return
 
-            # Prepare updates for each matching vector
-            update_data = []
+            # Prepare vectors for batch upsert (more efficient than individual updates)
+            upsert_vectors = []
             for match in query_response.matches:
                 vector_id = match.id
                 current_metadata = match.metadata or {}
@@ -786,15 +787,14 @@ class PineconeDb(VectorDb):
                 updated_metadata = current_metadata.copy()
                 updated_metadata.update(metadata)
 
-                update_data.append({"id": vector_id, "metadata": updated_metadata})
+                # Use existing vector values with updated metadata
+                upsert_vectors.append({"id": vector_id, "values": match.values, "metadata": updated_metadata})
 
-            # Update vectors individually (Pinecone update API doesn't support batch updates)
-            for update_item in update_data:
-                self.index.update(
-                    id=update_item["id"], set_metadata=update_item["metadata"], namespace=namespace or self.namespace
-                )
+            # Upsert all vectors at once
+            if upsert_vectors:
+                self.index.upsert(vectors=upsert_vectors, namespace=namespace or self.namespace)
 
-            logger.debug(f"Updated metadata for {len(update_data)} documents with filters: {filters}")
+            logger.debug(f"Updated metadata for {len(upsert_vectors)} documents with filters: {filters}")
 
         except Exception as e:
             logger.error(f"Error updating metadata with filters '{filters}': {e}")
