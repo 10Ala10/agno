@@ -678,10 +678,16 @@ class PineconeDb(VectorDb):
         """
         try:
             # Query for vectors with the given content_id
+            # Use a dummy vector since Pinecone requires either vector or id parameter
+            if self.dimension is None:
+                raise ValueError("Dimension is not set for this Pinecone index")
+            dummy_vector = [0.0] * self.dimension
             query_response = self.index.query(
+                vector=dummy_vector,
                 filter={"content_id": {"$eq": content_id}},
                 top_k=10000,  # Get all matching vectors
                 include_metadata=True,
+                include_values=False,
                 namespace=self.namespace,
             )
 
@@ -762,10 +768,16 @@ class PineconeDb(VectorDb):
                 return
 
             # Query for vectors with the given filters
+            # Use a dummy vector since Pinecone requires either vector or id parameter
+            if self.dimension is None:
+                raise ValueError("Dimension is not set for this Pinecone index")
+            dummy_vector = [0.0] * self.dimension
             query_response = self.index.query(
+                vector=dummy_vector,
                 filter=query_filters,
                 top_k=10000,  # Get all matching vectors
                 include_metadata=True,
+                include_values=False,
                 namespace=namespace or self.namespace,
             )
 
