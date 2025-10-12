@@ -705,13 +705,6 @@ class PineconeDb(VectorDb):
                 updated_metadata = current_metadata.copy()
                 updated_metadata.update(metadata)
 
-                if "filters" not in updated_metadata:
-                    updated_metadata["filters"] = {}
-                if isinstance(updated_metadata["filters"], dict):
-                    updated_metadata["filters"].update(metadata)
-                else:
-                    updated_metadata["filters"] = metadata
-
                 update_data.append({"id": vector_id, "metadata": updated_metadata})
 
             # Update vectors individually (Pinecone update API doesn't support batch updates)
@@ -792,14 +785,6 @@ class PineconeDb(VectorDb):
                 # Merge existing metadata with new metadata
                 updated_metadata = current_metadata.copy()
                 updated_metadata.update(metadata)
-
-                # Update filters metadata if it exists
-                if "filters" not in updated_metadata:
-                    updated_metadata["filters"] = {}
-                if isinstance(updated_metadata["filters"], dict):
-                    updated_metadata["filters"].update(metadata)
-                else:
-                    updated_metadata["filters"] = metadata
 
                 update_data.append({"id": vector_id, "metadata": updated_metadata})
 
