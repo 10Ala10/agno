@@ -719,3 +719,88 @@ class PineconeDb(VectorDb):
         except Exception as e:
             logger.error(f"Error updating metadata for content_id '{content_id}': {e}")
             raise
+
+    def update_metadata_by_filters(
+        self,
+        filters: Union[Dict[str, Union[str, float, int, bool, List, dict]], str, List],
+        metadata: Dict[str, Any],
+        namespace: Optional[str] = None,
+    ) -> None:
+        """
+        Update the metadata for documents matching the given filters.
+
+        Args:
+            filters: The filters to match documents. Can be:
+                - Dict: Filter dictionary (e.g., {"category": "tech", "status": "active"})
+                - str: Simple filter key (will be treated as {"name": filters})
+                - List: List of filter dictionaries
+            metadata (Dict[str, Any]): The metadata to update
+            namespace (Optional[str]): The namespace to search in. Defaults to self.namespace.
+        """
+        try:
+            # Normalize filters to the format expected by Pinecone
+            query_filters = None
+            if isinstance(filters, str):
+                # If filters is a string, treat it as a name filter
+                query_filters = {"name": {"$eq": filters}}
+            elif isinstance(filters, list):
+                # If filters is a list, we need to combine them with OR logic
+                # For simplicity, we'll take the first filter in the list
+                if filters:
+                    if isinstance(filters[0], dict):
+                        query_filters = filters[0]
+                    else:
+                        query_filters = {"name": {"$eq": str(filters[0])}}
+                else:
+                    logger.warning("Empty filter list provided")
+                    return
+            elif isinstance(filters, dict):
+                # If filters is already a dict, use it directly
+                query_filters = filters
+            else:
+                logger.warning(f"Unsupported filter type: {type(filters)}")
+                return
+
+            # Query for vectors with the given filters
+            query_response = self.index.query(
+                filter=query_filters,
+                top_k=10000,  # Get all matching vectors
+                include_metadata=True,
+                namespace=namespace or self.namespace,
+            )
+
+            if not query_response.matches:
+                logger.debug(f"No documents found with filters: {filters}")
+                return
+
+            # Prepare updates for each matching vector
+            update_data = []
+            for match in query_response.matches:
+                vector_id = match.id
+                current_metadata = match.metadata or {}
+
+                # Merge existing metadata with new metadata
+                updated_metadata = current_metadata.copy()
+                updated_metadata.update(metadata)
+
+                # Update filters metadata if it exists
+                if "filters" not in updated_metadata:
+                    updated_metadata["filters"] = {}
+                if isinstance(updated_metadata["filters"], dict):
+                    updated_metadata["filters"].update(metadata)
+                else:
+                    updated_metadata["filters"] = metadata
+
+                update_data.append({"id": vector_id, "metadata": updated_metadata})
+
+            # Update vectors in batches
+            batch_size = 100
+            for i in range(0, len(update_data), batch_size):
+                batch = update_data[i : i + batch_size]
+                self.index.update(vectors=batch, namespace=namespace or self.namespace)
+
+            logger.debug(f"Updated metadata for {len(update_data)} documents with filters: {filters}")
+
+        except Exception as e:
+            logger.error(f"Error updating metadata with filters '{filters}': {e}")
+            raise
