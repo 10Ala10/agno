@@ -714,11 +714,9 @@ class PineconeDb(VectorDb):
 
                 update_data.append({"id": vector_id, "metadata": updated_metadata})
 
-            # Update vectors in batches
-            batch_size = 100
-            for i in range(0, len(update_data), batch_size):
-                batch = update_data[i : i + batch_size]
-                self.index.update(vectors=batch, namespace=self.namespace)
+            # Update vectors individually (Pinecone update API doesn't support batch updates)
+            for update_item in update_data:
+                self.index.update(id=update_item["id"], set_metadata=update_item["metadata"], namespace=self.namespace)
 
             logger.debug(f"Updated metadata for {len(update_data)} documents with content_id: {content_id}")
 
@@ -805,11 +803,11 @@ class PineconeDb(VectorDb):
 
                 update_data.append({"id": vector_id, "metadata": updated_metadata})
 
-            # Update vectors in batches
-            batch_size = 100
-            for i in range(0, len(update_data), batch_size):
-                batch = update_data[i : i + batch_size]
-                self.index.update(vectors=batch, namespace=namespace or self.namespace)
+            # Update vectors individually (Pinecone update API doesn't support batch updates)
+            for update_item in update_data:
+                self.index.update(
+                    id=update_item["id"], set_metadata=update_item["metadata"], namespace=namespace or self.namespace
+                )
 
             logger.debug(f"Updated metadata for {len(update_data)} documents with filters: {filters}")
 
